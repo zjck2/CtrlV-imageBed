@@ -1,0 +1,32 @@
+:root { color-scheme: dark; }
+body { margin: 0; background: #0e1015; color: #e6e8ee;
+  font: 14px/1.7 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+main { max-width: 720px; margin: 0 auto; padding: 32px 22px 70px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 13px; margin: 0 0 12px; color: #8b93a7; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase; }
+.sub { color: #8b93a7; font-size: 12.5px; margin: 0 0 26px; }
+section { background: #171a21; border: 1px solid #282d38; border-radius: 12px;
+  padding: 16px 18px; margin-bottom: 16px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+input[type=text] { flex: 1; min-width: 260px; background: #0b0d12; color: #e6e8ee;
+  border: 1px solid #282d38; border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+select { background: #0b0d12; color: #e6e8ee; border: 1px solid #282d38;
+  border-radius: 7px; padding: 5px 8px; font-size: 13px; }
+button { background: #232833; color: #cfd4e0; border: 1px solid #313846;
+  border-radius: 8px; padding: 7px 13px; cursor: pointer; font-size: 13px; }
+button:hover { background: #2c3340; color: #fff; }
+button.primary { background: #2b4a7a; border-color: #3a5f96; color: #fff; }
+button.primary:hover { background: #345a94; }
+.hint { color: #8b93a7; font-size: 12.5px; margin: 10px 0 0; }
+.hint b { color: #e6e8ee; }
+.line { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; font-size: 13.5px; }
+.mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; }
+code { font-family: Consolas, monospace; font-size: 12px; background: #0b0d12;
+  padding: 1px 5px; border-radius: 4px; }
+a { color: #6fa8ff; }
+.ok { color: #3ecf8e; }
+.bad { color: #ff6b6b; }
+.red { margin: 0; padding-left: 20px; font-size: 13px; color: #d8dce6; }
+.red li { margin-bottom: 5px; }
+.red b { color: #e0a33e; }
