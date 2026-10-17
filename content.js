@@ -24,6 +24,11 @@
     if (window.__clipvImgBedExt) return;
     window.__clipvImgBedExt = true;
 
+    // 用户可见文案全部走 _locales（浏览器语言 zh→中文，en→英文）。
+    var M = function (key, args) {
+        try { return chrome.i18n.getMessage(key, args) || ''; } catch (e) { return ''; }
+    };
+
     var HOST_ORIGIN = 'https://imgchr.com';
     var HOST_HOME = HOST_ORIGIN + '/';
     var HOST_JSON = HOST_ORIGIN + '/json';
@@ -35,32 +40,25 @@
     var RATE_WINDOW_MS = 3600 * 1000;
     var MAX_BYTES = 5 * 1024 * 1024;
 
-    var TOS_SUMMARY =
-        '路过图床服务条款里和「随手截图」最相关的红线：\n' +
-        '· 禁止含二维码的图片\n' +
-        '· 禁止卡通漫画 / ACG / 二次元 / 动漫游戏画面\n' +
-        '· 禁止未经授权的电影、电视剧截图或封面\n' +
-        '· 上传频率上限 60 张/小时；登录用户单张 5 MB\n' +
-        '· 免费套餐仅限个人非商用使用\n' +
-        '违规会被删除账号下全部图片并封号封 IP。确认你了解后再开始。';
+    var TOS_SUMMARY = M('tosSummary');
 
     var FORMATS = {
-        markdown: { label: 'Markdown', build: function (l) { return '![' + l.title + '](' + l.direct + ')'; } },
-        url:      { label: '源文件直链', build: function (l) { return l.direct; } },
-        viewer:   { label: '图片网页', build: function (l) { return l.viewer || l.direct; } },
-        html:     { label: 'HTML', build: function (l) { return '<img src="' + l.direct + '" alt="' + l.title + '">'; } },
-        bbcode:   { label: 'BBCode', build: function (l) { return '[img]' + l.direct + '[/img]'; } },
-        thumbmd:  { label: 'MD带跳转', build: function (l) { return '[![' + l.title + '](' + (l.thumb || l.direct) + ')](' + (l.viewer || l.direct) + ')'; } }
+        markdown: { label: M('fmtMarkdown'), build: function (l) { return '![' + l.title + '](' + l.direct + ')'; } },
+        url:      { label: M('fmtUrl'), build: function (l) { return l.direct; } },
+        viewer:   { label: M('fmtViewer'), build: function (l) { return l.viewer || l.direct; } },
+        html:     { label: M('fmtHtml'), build: function (l) { return '<img src="' + l.direct + '" alt="' + l.title + '">'; } },
+        bbcode:   { label: M('fmtBbcode'), build: function (l) { return '[img]' + l.direct + '[/img]'; } },
+        thumbmd:  { label: M('fmtThumbMd'), build: function (l) { return '[![' + l.title + '](' + (l.thumb || l.direct) + ')](' + (l.viewer || l.direct) + ')'; } }
     };
 
     /* ------------------------------------------------------------- settings */
 
     var KEEPS = {
-        never: { label: '永久保留', hours: 0 },
-        h1:    { label: '1 小时后删除', hours: 1 },
-        h6:    { label: '6 小时后删除', hours: 6 },
-        d1:    { label: '1 天后删除', hours: 24 },
-        d7:    { label: '7 天后删除', hours: 168 }
+        never: { label: M('keepNever'), hours: 0 },
+        h1:    { label: M('keep1h'), hours: 1 },
+        h6:    { label: M('keep6h'), hours: 6 },
+        d1:    { label: M('keep1d'), hours: 24 },
+        d7:    { label: M('keep7d'), hours: 168 }
     };
 
     var CFG = {
@@ -109,12 +107,12 @@
     function parseHostJson(text, status) {
         var j;
         try { j = JSON.parse(text); }
-        catch (e) { throw new Error('图床返回非 JSON（HTTP ' + status + '）'); }
+        catch (e) { throw new Error(M('errNonJson', [status])); }
         var img = j && j.image;
         if (!img || !(img.display_url || (img.url && /^https?:/i.test(img.url)))) {
             var err = j && j.error;
             var msg = (err && (err.message || err)) || (j && j.status_txt) || ('HTTP ' + status);
-            throw new Error(typeof msg === 'string' ? msg : '上传失败');
+            throw new Error(typeof msg === 'string' ? msg : M('errUploadFailed'));
         }
         return img;
     }
@@ -138,7 +136,7 @@
         return new Promise(function (resolve, reject) {
             var fr = new FileReader();
             fr.onload = function () { resolve(fr.result); };
-            fr.onerror = function () { reject(new Error('读取剪贴板图片失败')); };
+            fr.onerror = function () { reject(new Error(M('errReadClipboard'))); };
             fr.readAsDataURL(file);
         });
     }
@@ -164,7 +162,7 @@
     // and its CSRF token stay inside the boundary they were issued for.
     function uploadSameOrigin(file, hours) {
         if (hostLooksAnonymous()) {
-            var anon = new Error('这个 imgchr 标签页未登录，已拒绝上传：访客图 7 天后会被删除。请先登录。');
+            var anon = new Error(M('errNotLoggedInHost'));
             anon.code = 'NOT_LOGGED_IN';
             return Promise.reject(anon);
         }
@@ -191,7 +189,7 @@
 
     // Delete uses the same list-editor payload the site itself posts.
     function deleteOnHost(encodedId) {
-        if (!encodedId) return Promise.reject(new Error('缺少图片 id'));
+        if (!encodedId) return Promise.reject(new Error(M('errMissingId')));
         return readPageToken().then(function (token) {
             var fd = new FormData();
             fd.append('action', 'delete');
@@ -212,7 +210,7 @@
                 var code = j && (j.status_code != null ? j.status_code : null);
                 if (!r.ok || (code != null && code !== 200)) {
                     var msg = (j && j.error && (j.error.message || j.error)) || (j && j.status_txt) || ('HTTP ' + r.status);
-                    throw new Error('删除失败：' + (typeof msg === 'string' ? msg : r.status));
+                    throw new Error(M('errDeleteFailed', [typeof msg === 'string' ? msg : r.status]));
                 }
                 return { ok: true };
             });
@@ -229,7 +227,7 @@
             .then(function (html) {
                 // The page inlines `auth_token: "<sha>"` as a bare JS object key -- unquoted.
                 var m = html.match(/auth_token["']?\s*[:=]\s*["']([0-9a-f]{16,})["']/i);
-                if (!m) throw new Error('取不到 imgchr 的 auth_token，请刷新页面后重试');
+                if (!m) throw new Error(M('errNoAuthTokenHost'));
                 pageToken = m[1];
                 return pageToken;
             });
@@ -258,12 +256,12 @@
                     if (handled) return;
                     handled = true;
                     var le = chrome.runtime.lastError;
-                    if (le) { fail('扩展后台通道不可用：' + le.message); return; }
-                    if (!resp) { fail('后台没有回应（扩展可能刚更新，刷新页面重试）'); return; }
+                    if (le) { fail(M('errBgChannel', [le.message])); return; }
+                    if (!resp) { fail(M('errNoBgResponse')); return; }
                     resolve(resp);
                 });
             } catch (e) {
-                fail('扩展上下文已失效，刷新页面即可：' + e.message);
+                fail(M('errCtxInvalid', [e.message]));
             }
         });
     }
@@ -281,7 +279,7 @@
             });
         }).then(function (resp) {
             if (!resp.ok) {
-                var e = new Error(resp.error || '上传失败');
+                var e = new Error(resp.error || M('errUploadFailed'));
                 if (resp.code) e.code = resp.code;
                 throw e;
             }
@@ -300,7 +298,7 @@
         var list = (CFG.deletes || []).concat([{ id: String(encodedId), at: Date.now() + hours * 3600000 }]);
         CFG.deletes = list;
         persist(['deletes']);
-        banner('已登记定时删除：约 ' + hours + ' 小时后由扩展后台自动执行。');
+        banner(M('bannerScheduled', [hours]));
     }
 
     var DELETE_RETRY_MAX = 6;
@@ -328,13 +326,13 @@
         }, Promise.resolve(0)).then(function (deleted) {
             CFG.deletes = future;
             persist(['deletes']);
-            if (deleted) banner('已删除 ' + deleted + ' 张到期图片');
+            if (deleted) banner(M('bannerDeleted', [deleted]));
             return deleted;
         });
     }
 
     function banner(msg) {
-        try { console.info('[Ctrl+V 秒传图床] ' + msg); } catch (e) { }
+        try { console.info(M('consoleTag') + ' ' + msg); } catch (e) { }
     }
 
     function upload(file, hours) { return IS_HOST ? hostUpload(file, hours) : uploadViaBackground(file, hours); }
@@ -478,7 +476,7 @@
 
         var root = el('div', 'cvib-root' + (pinned ? '' : ' cvib-hide'));
         var head = el('div', 'cvib-head');
-        head.appendChild(el('span', 'cvib-title', 'Ctrl+V 秒传图床'));
+        head.appendChild(el('span', 'cvib-title', M('uiTitle')));
         var rate = el('span', 'cvib-rate');
         head.appendChild(rate);
         var gear = el('button', 'cvib-icobtn', '⚙');
@@ -494,12 +492,12 @@
         sel.value = settings().copyFormat;
         sel.addEventListener('change', function () { CFG.copyFormat = this.value; persist(['copyFormat']); });
 
-        var toggle = el('button', 'cvib-btn', pinned ? '收起' : '常驻');
+        var toggle = el('button', 'cvib-btn', pinned ? M('uiCollapse') : M('uiPin'));
         toggle.addEventListener('click', function () {
             pinned = !pinned;
             root.classList.remove('cvib-hide');
             min.textContent = pinned ? '–' : '×';
-            this.textContent = pinned ? '收起' : '常驻';
+            this.textContent = pinned ? M('uiCollapse') : M('uiPin');
         });
 
         opts.appendChild(sel); opts.appendChild(toggle);
@@ -518,8 +516,8 @@
 
     function showRate() {
         var r = rateAllowed(false);
-        els.rate.textContent = '本小时 ' + r.used + '/' + RATE_MAX;
-        els.rate.title = '路过图床服务条款限制 60 张/小时';
+        els.rate.textContent = M('rateUsed', [r.used, RATE_MAX]);
+        els.rate.title = M('rateTitle');
     }
 
     function keepPrompt(card) {
@@ -527,7 +525,7 @@
         if (!s.askKeep) return Promise.resolve(KEEPS[s.keep].hours);
         return new Promise(function (resolve) {
             var row = el('div', 'cvib-chips');
-            row.appendChild(el('span', 'cvib-note', '这张图保留多久？'));
+            row.appendChild(el('span', 'cvib-note', M('keepQuestion')));
             var settled = false;
             function settle(k) {
                 if (settled) return;
@@ -541,8 +539,8 @@
                 b.addEventListener('click', function () { settle(k); });
                 row.appendChild(b);
             });
-            var remember = el('button', 'cvib-chip', '以后不再问');
-            remember.title = '以后按 Ctrl+V 直接用当前默认，需要改再去设置';
+            var remember = el('button', 'cvib-chip', M('keepDontAsk'));
+            remember.title = M('keepDontAskTip');
             remember.addEventListener('click', function () {
                 CFG.askKeep = false; persist(['askKeep']); settle(CFG.keep || 'never');
             });
@@ -560,36 +558,34 @@
     function showSettings(body) {
         body.innerHTML = '';
         var box = el('div');
-        box.appendChild(el('p', 'cvib-note', IS_HOST
-            ? '这个标签页就是上传执行端。保持它开着并处于登录状态，别的网站按 Ctrl+V 也能传图（后台会优先用隐藏通道）。不需要任何 API key。'
-            : '跨站上传由扩展后台的隐藏 imgchr 页面执行，不需要打开 imgchr 标签页；图片只在本机传递，不会发给第三方。'));
+        box.appendChild(el('p', 'cvib-note', IS_HOST ? M('settingsHostNote') : M('settingsGuestNote')));
         var row = el('div', 'cvib-chips');
-        var keepBtn = el('button', 'cvib-btn', '默认保留：' + KEEPS[settings().keep].label);
-        keepBtn.title = '点一下轮换默认保留时长';
+        var keepBtn = el('button', 'cvib-btn', M('settingsDefaultKeep', [KEEPS[settings().keep].label]));
+        keepBtn.title = M('settingsDefaultKeepTip');
         keepBtn.addEventListener('click', function () {
             var keys = Object.keys(KEEPS);
             CFG.keep = keys[(keys.indexOf(CFG.keep) + 1) % keys.length];
             persist(['keep']);
-            this.textContent = '默认保留：' + KEEPS[CFG.keep].label;
+            this.textContent = M('settingsDefaultKeep', [KEEPS[CFG.keep].label]);
         });
-        var askBtn = el('button', 'cvib-btn', settings().askKeep ? '每次询问：开' : '每次询问：关');
+        var askBtn = el('button', 'cvib-btn', settings().askKeep ? M('settingsAskOn') : M('settingsAskOff'));
         askBtn.addEventListener('click', function () {
             CFG.askKeep = !CFG.askKeep; persist(['askKeep']);
-            this.textContent = CFG.askKeep ? '每次询问：开' : '每次询问：关';
+            this.textContent = CFG.askKeep ? M('settingsAskOn') : M('settingsAskOff');
         });
-        var open = el('button', 'cvib-btn', IS_HOST ? '重新登录' : 'imgchr 登录页');
+        var open = el('button', 'cvib-btn', IS_HOST ? M('settingsRelogin') : M('settingsLoginPage'));
         open.addEventListener('click', function () {
             if (IS_HOST) { location.href = HOST_LOGIN; return; }
             window.open(HOST_LOGIN, '_blank');
         });
-        var pend = el('button', 'cvib-btn', '待删列表：' + (CFG.deletes || []).length + ' 项');
-        pend.title = '清空待删列表（不会删已有图，只是不再自动删）';
+        var pend = el('button', 'cvib-btn', M('settingsPending', [(CFG.deletes || []).length]));
+        pend.title = M('settingsPendingTip');
         pend.addEventListener('click', function () {
             if (IS_HOST) { runDueDeletes(); }
             CFG.deletes = []; persist(['deletes']);
-            this.textContent = '待删列表：0 项';
+            this.textContent = M('settingsPending', [0]);
         });
-        var tos = el('button', 'cvib-btn', '内容红线');
+        var tos = el('button', 'cvib-btn', M('settingsTos'));
         tos.addEventListener('click', function () { window.alert(TOS_SUMMARY); });
         row.appendChild(keepBtn); row.appendChild(askBtn); row.appendChild(open); row.appendChild(pend); row.appendChild(tos);
         box.appendChild(row);
@@ -605,8 +601,8 @@
         var card = el('div', 'cvib-card');
         var thumb = el('div', 'cvib-thumb');
         var main = el('div', 'cvib-main');
-        main.appendChild(el('div', 'cvib-name', (file.name || '剪贴板图片') + ' · ' + fmtSize(file.size)));
-        var stage = el('div', 'cvib-stage', '处理中…');
+        main.appendChild(el('div', 'cvib-name', (file.name || M('clipboardImage')) + ' · ' + fmtSize(file.size)));
+        var stage = el('div', 'cvib-stage', M('stageWorking'));
         var chips = el('div', 'cvib-chips');
         main.appendChild(stage); main.appendChild(chips);
         card.appendChild(thumb); card.appendChild(main);
@@ -616,11 +612,11 @@
             var u = URL.createObjectURL(file);
             thumb.style.backgroundImage = 'url("' + u + '")';
             setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
-        } catch (err) { thumb.textContent = '图'; }
+        } catch (err) { thumb.textContent = M('thumbLetter'); }
 
         return {
             stage: function (t, cls) { stage.textContent = t; stage.className = 'cvib-stage' + (cls ? ' cvib-' + cls : ''); },
-            fail: function (m, warn) { this.stage('失败：' + m, warn ? 'warn' : 'err'); card.classList.add('cvib-bad'); },
+            fail: function (m, warn) { this.stage(M('stageFailed', [m]), warn ? 'warn' : 'err'); card.classList.add('cvib-bad'); },
             chips: function (list) {
                 chips.innerHTML = '';
                 list.forEach(function (c) {
@@ -652,7 +648,7 @@
 
     function ensureTos() {
         if (settings().tosAccepted) return true;
-        var ok = window.confirm('第一次使用需要确认你看过路过图床的服务条款。\n\n' + TOS_SUMMARY + '\n\n确定继续使用吗？');
+        var ok = window.confirm(M('tosConfirm', [TOS_SUMMARY]));
         if (ok) { CFG.tosAccepted = true; persist(['tosAccepted']); }
         return ok;
     }
@@ -738,7 +734,7 @@
         var card = addCard(file);
 
         if (file.size > MAX_BYTES) {
-            card.fail('图片 ' + fmtSize(file.size) + ' 超过登录用户单张 ' + fmtSize(MAX_BYTES) + ' 上限', true);
+            card.fail(M('errTooLarge', [fmtSize(file.size), fmtSize(MAX_BYTES)]), true);
             card.autoHide(); return;
         }
         // 额度账本只在执行端记账：站内直传在这里记，跨站转发由 imgchr 执行脚本记。
@@ -746,16 +742,16 @@
         var r = IS_HOST ? rateAllowed(true) : rateAllowed(false);
         if (!r.ok) {
             showRate();
-            card.fail('已达路过图床 60 张/小时上限，约 ' + r.waitMin + ' 分钟后可继续', true);
+            card.fail(M('errRateLimit', [r.waitMin]), true);
             card.autoHide(); return;
         }
         showRate();
-        if (!ensureTos()) { card.fail('未确认服务条款，已取消', true); card.autoHide(); return; }
+        if (!ensureTos()) { card.fail(M('errTosNotAccepted'), true); card.autoHide(); return; }
 
         // Ask how long to keep it. Temporary screenshots should not squat in the account
         // forever, and imgchr's free tier has no per-image TTL for every value we offer.
         keepPrompt(card).then(function (hours) {
-            card.stage(IS_HOST ? '上传中…' : '经后台隐藏通道上传中…');
+            card.stage(IS_HOST ? M('stageUploading') : M('stageUploadingBg'));
             return upload(file, hours);
         }).then(function (img) {
             var links = buildLinks(img, file);
@@ -764,47 +760,47 @@
             var md = FORMATS.markdown.build(links);
 
             card.stage(img.__cached
-                ? '已上传 · 这张之前传过，直接复用已有链接'
-                : '已上传 · ' + fmtSize(links.size) + (links.width ? ' · ' + links.width + '×' + links.height : ''));
+                ? M('stageCached')
+                : M('prefixUploaded') + fmtSize(links.size) + (links.width ? ' · ' + links.width + '×' + links.height : ''));
 
             var actions = [
                 { label: 'MD', value: md },
-                { label: '直链', value: links.direct },
+                { label: M('actDirect'), value: links.direct },
                 { label: 'HTML', value: FORMATS.html.build(links) },
                 { label: 'BBCode', value: FORMATS.bbcode.build(links) },
-                { label: '网页', value: links.viewer || links.direct },
-                { label: '缩略图', value: links.thumb || links.direct }
+                { label: M('actViewer'), value: links.viewer || links.direct },
+                { label: M('actThumb'), value: links.thumb || links.direct }
             ];
-            if (links.deleteUrl) actions.push({ label: '删除', value: links.deleteUrl });
+            if (links.deleteUrl) actions.push({ label: M('actDelete'), value: links.deleteUrl });
 
             var inserted = null;
             if (field && settings().autoInsert) {
                 try { insertText(field, text); inserted = text; } catch (e) { inserted = null; }
-                if (inserted) card.stage('已上传 · 已把' + fmt.label + '插入输入框');
+                if (inserted) card.stage(M('prefixUploaded') + M('stageInserted', [fmt.label]));
             }
             if (!inserted) {
                 copyText(text).then(function () {
-                    card.stage('已上传 · 已复制' + fmt.label + (field ? '（插入失败，手动 Ctrl+V）' : ''));
+                    card.stage(M('prefixUploaded') + M('stageCopied', [fmt.label]) + (field ? M('copiedInsertFailed') : ''));
                 }).catch(function () {
-                    card.stage('已上传 · 点下面的按钮复制');
+                    card.stage(M('prefixUploaded') + M('stageCopyButtons'));
                 });
             }
 
             // Some plain-text boxes want the image wrapped in markdown rather than a bare URL.
             if (inserted && md !== inserted) {
                 actions.unshift({
-                    label: '改成 ![](…)', key: true, act: function (b) {
-                        if (replaceText(field, inserted, md)) { b.textContent = '已改 ✓'; flash(b); }
-                        else { b.textContent = '框里内容已变，不动了'; }
+                    label: M('actToMd'), key: true, act: function (b) {
+                        if (replaceText(field, inserted, md)) { b.textContent = M('actChanged'); flash(b); }
+                        else { b.textContent = M('actFieldChanged'); }
                     }
                 });
             }
             // 反向切换：插了带嵌套的格式后想要裸链接，一键换成源文件直链。
             if (inserted && text !== links.direct) {
                 actions.unshift({
-                    label: '改成直链', key: true, act: function (b) {
-                        if (replaceText(field, inserted, links.direct)) { b.textContent = '已改 ✓'; flash(b); }
-                        else { b.textContent = '框里内容已变，不动了'; }
+                    label: M('actToDirect'), key: true, act: function (b) {
+                        if (replaceText(field, inserted, links.direct)) { b.textContent = M('actChanged'); flash(b); }
+                        else { b.textContent = M('actFieldChanged'); }
                     }
                 });
             }
@@ -816,12 +812,12 @@
             var code = err && err.code;
             if (/重复|duplicate|already|已上传/i.test(m)) {
                 // 站方开了「拒绝重复上传」：同一张图连按两次 Ctrl+V 时会走到这里。
-                card.fail('imgchr 拒绝了重复上传——这张图刚传过，链接已在上面那张卡里', true);
+                card.fail(M('errDuplicate'), true);
             } else {
                 card.fail(m, !!code);
             }
             if (code === 'NOT_LOGGED_IN') {
-                card.chips([{ label: '去登录 imgchr', value: HOST_LOGIN }]);
+                card.chips([{ label: M('chipLogin'), value: HOST_LOGIN }]);
             }
             card.autoHide();
         });
@@ -832,8 +828,7 @@
     function boot() {
         try {
             var ver = (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '?';
-            console.info('[Ctrl+V 秒传图床] v' + ver + ' 已加载，模式=' +
-                (IS_HOST ? 'imgchr 站内（常驻面板）' : '观察模式（只在图片粘贴且页面不接管时介入）'));
+            console.info(M('consoleTag') + ' ' + (IS_HOST ? M('bootHost', [ver]) : M('bootGuest', [ver])));
         } catch (e) { /* diagnostics only */ }
 
         if (IS_HOST) {

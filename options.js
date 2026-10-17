@@ -3,9 +3,20 @@
 (function () {
     var $ = function (id) { return document.getElementById(id); };
     var RATE_WINDOW_MS = 3600 * 1000;
-    var KEEP_LABEL = {
-        never: '永久保留', h1: '1 小时后删除', h6: '6 小时后删除', d1: '1 天后删除', d7: '7 天后删除'
+
+    // 用户可见文案走 _locales（浏览器语言 zh→中文，en→英文）。
+    var M = function (key, args) {
+        try { return chrome.i18n.getMessage(key, args) || ''; } catch (e) { return ''; }
     };
+    var KEEP_MSG = { never: 'keepNever', h1: 'keep1h', h6: 'keep6h', d1: 'keep1d', d7: 'keep7d' };
+    var keepLabel = function (k) { return M(KEEP_MSG[k] || 'keepNever'); };
+
+    // 静态文本：HTML 里标了 data-i18n 的元素在这里统一填入译文（含 title 属性）。
+    document.title = M('optPageTitle');
+    document.querySelectorAll('[data-i18n]').forEach(function (n) {
+        var text = M(n.getAttribute('data-i18n'));
+        if (text) n.textContent = text;
+    });
 
     var current = {
         copyFormat: 'markdown', autoInsert: true, askKeep: true, keep: 'never',
@@ -47,18 +58,18 @@
         $('copyFormat').value = s.copyFormat || 'markdown';
         $('autoInsert').checked = s.autoInsert !== false;
         $('askKeep').checked = s.askKeep !== false;
-        $('keep').value = KEEP_LABEL[s.keep] ? s.keep : 'never';
+        $('keep').value = KEEP_MSG[s.keep] ? s.keep : 'never';
 
         var pending = (s.deletes || []).length;
         $('delCount').textContent = pending;
         $('keepState').className = 'hint';
         $('keepState').textContent = (s.askKeep !== false)
-            ? '每次上传都会问你留多久。'
-            : '不再询问，按 Ctrl+V 一律「' + (KEEP_LABEL[s.keep] || '永久保留') + '」。';
+            ? M('optAskOn')
+            : M('optAskOff', [keepLabel(s.keep)]);
 
         var hits = (s.uploads || []).filter(function (t) { return Date.now() - t < RATE_WINDOW_MS; });
         $('rateUsed').textContent = hits.length;
-        $('tosState').textContent = s.tosAccepted ? '已确认' : '未确认（下次上传前会问你一次）';
+        $('tosState').textContent = s.tosAccepted ? M('optTosOk') : M('optTosPending');
         $('tosState').className = s.tosAccepted ? 'ok' : 'bad';
     }
 
@@ -78,35 +89,35 @@
     });
 
     $('copyFormat').addEventListener('change', function () {
-        save({ copyFormat: this.value }, '格式已保存 ✓');
+        save({ copyFormat: this.value }, M('optSavedFormat'));
     });
     $('autoInsert').addEventListener('change', function () {
-        save({ autoInsert: this.checked }, '已保存 ✓');
+        save({ autoInsert: this.checked }, M('optSaved'));
     });
     $('askKeep').addEventListener('change', function () {
-        save({ askKeep: this.checked }, '已保存 ✓');
+        save({ askKeep: this.checked }, M('optSaved'));
     });
     $('keep').addEventListener('change', function () {
-        save({ keep: this.value }, '默认已保存 ✓');
+        save({ keep: this.value }, M('optSavedKeep'));
     });
     $('clearDeletes').addEventListener('click', function () {
-        save({ deletes: [] }, '待删队列已清空 ✓');
+        save({ deletes: [] }, M('optQueueCleared'));
     });
     $('runDeletes').addEventListener('click', function () {
         var b = this;
-        b.textContent = '执行中…';
+        b.textContent = M('optRunning');
         chrome.runtime.sendMessage({ type: 'cvib-delete-due' }, function (resp) {
             var le = chrome.runtime.lastError;
-            if (le) { b.textContent = '后台不可用'; return; }
-            if (!resp || !resp.ok) { b.textContent = (resp && resp.error) || '后台通道不可用'; return; }
-            b.textContent = '已删除 ' + ((resp.result && resp.result.deleted) || 0) + ' 项';
-            setTimeout(function () { b.textContent = '现在执行到期项'; }, 2500);
+            if (le) { b.textContent = M('optBgUnavailable'); return; }
+            if (!resp || !resp.ok) { b.textContent = (resp && resp.error) || M('optBgChannel'); return; }
+            b.textContent = M('optDeleted', [(resp.result && resp.result.deleted) || 0]);
+            setTimeout(function () { b.textContent = M('optRunDue'); }, 2500);
         });
     });
     $('resetRate').addEventListener('click', function () {
-        save({ uploads: [] }, '计数已清零 ✓');
+        save({ uploads: [] }, M('optRateReset'));
     });
     $('resetTos').addEventListener('click', function () {
-        save({ tosAccepted: false }, '已重置，下次上传前会再问你一次 ✓');
+        save({ tosAccepted: false }, M('optTosReset'));
     });
 })();

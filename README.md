@@ -1,5 +1,7 @@
 # Ctrl+V 秒传路过图床
 
+**中文** | [English](README.en.md)
+
 在任意网页上按 <kbd>Ctrl</kbd>+<kbd>V</kbd>，剪贴板里的截图自动上传到[路过图床（imgchr.com）](https://imgchr.com/)，链接立刻插入当前输入框——不需要打开图床的标签页，不需要 API key。
 
 ![封面](docs/social-preview.png)
@@ -80,6 +82,7 @@ imgchr 免费账号领不到 API key，跨站上传必须由一个真正的 imgc
 ├── offscreen.html/js  隐藏通道页（内嵌 imgchr iframe）
 ├── imgchr-frame.js    在 imgchr 文档内执行的同源上传/删除
 ├── options.html/css/js 设置页
+├── _locales/          中文 + 英文文案（跟随浏览器语言）
 └── docs/              封面图
 ```
 

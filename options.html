@@ -7,70 +7,70 @@
 </head>
 <body>
 <main>
-  <h1>Ctrl+V 秒传路过图床</h1>
-  <p class="sub">扩展状态：<span id="loadState" class="ok">已加载</span> · 版本 <span id="ver" class="mono"></span></p>
+  <h1 data-i18n="optH1">Ctrl+V 秒传路过图床</h1>
+  <p class="sub"><span data-i18n="optStatusPrefix">扩展状态：</span><span id="loadState" class="ok" data-i18n="optStatusLoaded">已加载</span> · <span data-i18n="optVersionPrefix">版本</span> <span id="ver" class="mono"></span></p>
 
   <section>
-    <h2>保留与定时删除</h2>
-    <p class="hint">
+    <h2 data-i18n="optSecKeep">保留与定时删除</h2>
+    <p class="hint" data-i18n="optKeepHint">
       不需要 API key，也不需要打开 imgchr 标签页。跨站上传由扩展后台一个隐藏的 imgchr 页面
       执行（用时自动创建、空闲自动销毁），auth_token 和登录 cookie 全程留在 imgchr 自己的页面里。
     </p>
-    <label class="line"><input type="checkbox" id="askKeep"> 每次上传前问我这张留多久</label>
-    <label class="line">默认保留时长
+    <label class="line"><input type="checkbox" id="askKeep"> <span data-i18n="optAskKeepLabel">每次上传前问我这张图留多久</span></label>
+    <label class="line"><span data-i18n="optKeepDefaultLabel">默认保留时长</span>
       <select id="keep">
-        <option value="never">永久保留</option>
-        <option value="h1">1 小时后删除</option>
-        <option value="h6">6 小时后删除</option>
-        <option value="d1">1 天后删除</option>
-        <option value="d7">7 天后删除</option>
+        <option value="never" data-i18n="keepNever">永久保留</option>
+        <option value="h1" data-i18n="keep1h">1 小时后删除</option>
+        <option value="h6" data-i18n="keep6h">6 小时后删除</option>
+        <option value="d1" data-i18n="keep1d">1 天后删除</option>
+        <option value="d7" data-i18n="keep7d">7 天后删除</option>
       </select>
     </label>
-    <p class="hint">优先使用图床自己的 <code>expiration</code> 字段（服务器到点自己删）；
+    <p class="hint" data-i18n="optExpirationHint">优先使用图床自己的 <code>expiration</code> 字段（服务器到点自己删）；
       当前账号能选哪些有效期由 imgchr 页面决定。若该时长不被支持，脚本会退化成自己登记待删，
       由扩展后台的定时器到期时拉起隐藏通道调删除接口执行。</p>
     <p id="keepState" class="hint"></p>
-    <p class="hint">待删除队列：<b id="delCount">0</b> 项 <button id="runDeletes">现在执行到期项</button> <button id="clearDeletes">清空队列</button></p>
+    <p class="hint"><span data-i18n="optQueueLabel">待删除队列：</span><b id="delCount">0</b><span data-i18n="optQueueUnit"> 项</span> <button id="runDeletes" data-i18n="optRunDue">现在执行到期项</button> <button id="clearDeletes" data-i18n="optClearQueue">清空队列</button></p>
   </section>
 
   <section>
-    <h2>行为</h2>
-    <label class="line"><input type="checkbox" id="autoInsert"> 拿到链接后自动插入当前输入框（关掉则只复制到剪贴板）</label>
-    <label class="line">插入/复制的格式
+    <h2 data-i18n="optSecBehavior">行为</h2>
+    <label class="line"><input type="checkbox" id="autoInsert"> <span data-i18n="optAutoInsertLabel">拿到链接后自动插入当前输入框（关掉则只复制到剪贴板）</span></label>
+    <label class="line"><span data-i18n="optFormatLabel">插入/复制的格式</span>
       <select id="copyFormat">
-        <option value="markdown">Markdown &nbsp;![说明](链接)</option>
-        <option value="url">源文件直链</option>
-        <option value="viewer">图片网页链接</option>
-        <option value="html">HTML &nbsp;&lt;img&gt;</option>
-        <option value="bbcode">BBCode &nbsp;[img]</option>
-        <option value="thumbmd">Markdown 带跳转</option>
+        <option value="markdown" data-i18n="fmtMarkdown">Markdown &nbsp;![说明](链接)</option>
+        <option value="url" data-i18n="fmtUrl">源文件直链</option>
+        <option value="viewer" data-i18n="fmtViewer">图片网页链接</option>
+        <option value="html" data-i18n="fmtHtml">HTML &nbsp;&lt;img&gt;</option>
+        <option value="bbcode" data-i18n="fmtBbcode">BBCode &nbsp;[img]</option>
+        <option value="thumbmd" data-i18n="fmtThumbMd">Markdown 带跳转</option>
       </select>
     </label>
-    <p class="hint">无论选哪个，卡片上都会保留全部格式的一键复制按钮；纯文本框里插入后还能点「改成 ![](…)」。</p>
+    <p class="hint" data-i18n="optFormatHint">无论选哪个，卡片上都会保留全部格式的一键复制按钮；纯文本框里插入后还能点「改成 ![](…)」。</p>
   </section>
 
   <section>
-    <h2>额度</h2>
-    <p class="hint">本小时已用 <b id="rateUsed">0</b> / 60 —— 这是路过图床服务条款写死的上限，超了脚本会直接拒绝而不会发请求。</p>
-    <button id="resetRate">清零计数（换网络/换时段时用）</button>
+    <h2 data-i18n="optSecRate">额度</h2>
+    <p class="hint"><span data-i18n="optRateHintPrefix">本小时已用</span> <b id="rateUsed">0</b><span data-i18n="optRateHintSuffix">/ 60 —— 这是路过图床服务条款写死的上限，超了脚本会直接拒绝而不会发请求。</span></p>
+    <button id="resetRate" data-i18n="optResetRate">清零计数（换网络/换时段时用）</button>
   </section>
 
   <section>
-    <h2>内容红线（路过图床 /page/tos，2026-06-05 修订）</h2>
+    <h2 data-i18n="optSecTos">内容红线（路过图床 /page/tos，2026-06-05 修订）</h2>
     <ul class="red">
-      <li>禁止含<b>二维码</b>的图片</li>
-      <li>禁止<b>卡通漫画 / ACG / 二次元 / 动漫游戏</b>画面</li>
-      <li>禁止<b>未经授权的电影、电视剧</b>截图或封面</li>
-      <li>禁止淫秽色情、暴力恐怖、侵权、黑产等内容</li>
-      <li>免费套餐仅限<b>个人非商用</b>；登录用户单张 5 MB</li>
+      <li data-i18n="optRed1">禁止含<b>二维码</b>的图片</li>
+      <li data-i18n="optRed2">禁止<b>卡通漫画 / ACG / 二次元 / 动漫游戏</b>画面</li>
+      <li data-i18n="optRed3">禁止<b>未经授权的电影、电视剧</b>截图或封面</li>
+      <li data-i18n="optRed4">禁止淫秽色情、暴力恐怖、侵权、黑产等内容</li>
+      <li data-i18n="optRed5">免费套餐仅限<b>个人非商用</b>；登录用户单张 5 MB</li>
     </ul>
-    <p class="hint">违规会被删除账号下全部图片并封号封 IP。「随手截图」很容易踩到二维码和动漫游戏这两条，请自己把关。</p>
-    <p class="hint">首次确认状态：<span id="tosState"></span> <button id="resetTos">重置，下次重新问我</button></p>
+    <p class="hint" data-i18n="optTosHint">违规会被删除账号下全部图片并封号封 IP。「随手截图」很容易踩到二维码和动漫游戏这两条，请自己把关。</p>
+    <p class="hint"><span data-i18n="optTosStateLabel">首次确认状态：</span><span id="tosState"></span> <button id="resetTos" data-i18n="optResetTos">重置，下次重新问我</button></p>
   </section>
 
   <section>
-    <h2>不干涉规则</h2>
-    <p class="hint">监听在页面脚本运行之前就位（捕获阶段），但只旁听、不拦截——页面自己的粘贴逻辑一步不少。
+    <h2 data-i18n="optSecNoInterfere">不干涉规则</h2>
+    <p class="hint" data-i18n="optNoInterfereHint">监听在页面脚本运行之前就位（捕获阶段），但只旁听、不拦截——页面自己的粘贴逻辑一步不少。
       两种情况完全不干涉：光标在富文本（contenteditable）编辑器里（它自己能收图），或页面自己接管了
       这次粘贴（<code>preventDefault</code>）。其余情况下——普通 <code>input</code> / <code>textarea</code>，
       或光标不在输入区——才会上传。复制文字永远不会触发它。</p>

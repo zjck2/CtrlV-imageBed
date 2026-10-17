@@ -11,6 +11,11 @@
 
 'use strict';
 
+// 用户可见文案走 _locales（浏览器语言 zh→中文，en→英文）。
+var M = function (key, args) {
+    try { return chrome.i18n.getMessage(key, args) || ''; } catch (e) { return ''; }
+};
+
 var OFFSCREEN_URL = 'offscreen.html';
 var JOB_TIMEOUT_MS = 120000;
 
@@ -60,7 +65,7 @@ function ensureOffscreen() {
         return chrome.offscreen.createDocument({
             url: OFFSCREEN_URL,
             reasons: ['IFRAME_SCRIPTING'],
-            justification: '在隐藏 iframe 中加载 imgchr.com 页面，由它自己发起同源上传/删除请求（该站点不提供免费账号 API）。'
+            justification: M('offscreenJustification')
         });
     }).catch(function (e) {
         // 竞态（文档刚好已被创建）不算失败。
@@ -84,7 +89,7 @@ function runJob(job) {
             var timer = setTimeout(function () {
                 if (done) return;
                 done = true;
-                resolve({ ok: false, error: 'imgchr 后台通道超时（' + Math.round(JOB_TIMEOUT_MS / 1000) + ' 秒），请重试' });
+                resolve({ ok: false, error: M('errJobTimeout', [Math.round(JOB_TIMEOUT_MS / 1000)]) });
             }, JOB_TIMEOUT_MS);
             try {
                 chrome.runtime.sendMessage({ type: 'cvib-job', id: id, job: job }, function (resp) {
@@ -92,13 +97,13 @@ function runJob(job) {
                     done = true;
                     clearTimeout(timer);
                     var le = chrome.runtime.lastError;
-                    if (le) resolve({ ok: false, error: '后台通道不可用：' + le.message });
-                    else resolve(resp || { ok: false, error: 'imgchr 后台页面没有回应' });
+                    if (le) resolve({ ok: false, error: M('errBgChannel', [le.message]) });
+                    else resolve(resp || { ok: false, error: M('errNoFrameResponse') });
                 });
             } catch (e) {
                 done = true;
                 clearTimeout(timer);
-                resolve({ ok: false, error: '扩展上下文已失效，请重载扩展或刷新页面：' + (e.message || e) });
+                resolve({ ok: false, error: M('errCtxReload', [e.message || e]) });
             }
         });
     }).then(function (resp) {

@@ -10,6 +10,11 @@
 
 'use strict';
 
+// 用户可见文案走 _locales（浏览器语言 zh→中文，en→英文）。
+var M = function (key, args) {
+    try { return chrome.i18n.getMessage(key, args) || ''; } catch (e) { return ''; }
+};
+
 var FRAME_URL = 'https://imgchr.com/';
 var FRAME_ORIGIN = 'https://imgchr.com';
 var READY_TIMEOUT = 45000;
@@ -50,7 +55,7 @@ window.addEventListener('message', function (e) {
         // 必须包回 {ok, result} 信封再回给后台：执行端给的是裸结果，少了 ok 字段会被
         // 请求端当成失败（就是「上传成功却报上传失败」的根因）。
         if (d.ok) entry.sendResponse({ ok: true, result: d.result });
-        else entry.sendResponse({ ok: false, error: d.error || '上传失败', code: d.code || null });
+        else entry.sendResponse({ ok: false, error: d.error || M('errUploadFailed'), code: d.code || null });
     }
 });
 
@@ -64,7 +69,7 @@ function dispatch(item) {
                 pending.clear();
                 frameReady = false;
                 // iframe 45 秒还没就绪：多半是站点改版或网络问题，重装一个再试由后台决定。
-                stale.forEach(function (it) { it.sendResponse({ ok: false, error: 'imgchr 后台页面加载超时，请重试' }); });
+                stale.forEach(function (it) { it.sendResponse({ ok: false, error: M('errFrameTimeout') }); });
             }, READY_TIMEOUT);
         }
         return;
@@ -77,7 +82,7 @@ function dispatch(item) {
             { source: 'cvib-frame-in', id: item.id, job: item.job }, FRAME_ORIGIN);
     } catch (e) {
         pending.delete(item.id);
-        item.sendResponse({ ok: false, error: 'imgchr 后台页面不可用：' + (e.message || e) });
+        item.sendResponse({ ok: false, error: M('errFrameUnavailable', [e.message || e]) });
     }
 }
 

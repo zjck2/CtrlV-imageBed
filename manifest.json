@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Ctrl+V 截图秒传路过图床",
-  "version": "3.3.1",
+  "name": "__MSG_extName__",
+  "version": "3.4.0",
   "minimum_chrome_version": "116",
-  "description": "任意网站按 Ctrl+V：能直接贴图的地方不干涉；只能填文字的地方由后台隐藏的 imgchr 页面同源上传并把链接插进去，可选定时删除。无需打开 imgchr 标签页。",
+  "default_locale": "zh_CN",
+  "description": "__MSG_extDesc__",
   "permissions": ["storage", "offscreen", "alarms"],
   "host_permissions": ["https://imgchr.com/*"],
   "background": {

@@ -14,6 +14,11 @@
 
     if (window.top === window) return;      // 普通 imgchr 标签页：本脚本不参与，直接退出
 
+    // 用户可见文案走 _locales（浏览器语言 zh→中文，en→英文）。
+    var M = function (key, args) {
+        try { return chrome.i18n.getMessage(key, args) || ''; } catch (e) { return ''; }
+    };
+
     var HOST_ORIGIN = 'https://imgchr.com';
     var HOST_HOME = HOST_ORIGIN + '/';
     var HOST_JSON = HOST_ORIGIN + '/json';
@@ -49,10 +54,10 @@
     })();
 
     function runJob(job) {
-        if (!job || !job.kind) return Promise.reject(new Error('空任务'));
+        if (!job || !job.kind) return Promise.reject(new Error(M('errEmptyJob')));
         if (job.kind === 'upload') return doUpload(job);
         if (job.kind === 'delete-due') return doDueDeletes();
-        return Promise.reject(new Error('未知任务类型：' + job.kind));
+        return Promise.reject(new Error(M('errUnknownJob', [job.kind])));
     }
 
     /* ------------------------------------------------------------ storage */
@@ -78,8 +83,7 @@
             var hits = (o.uploads || []).filter(function (t) { return now - t < RATE_WINDOW_MS; });
             if (hits.length >= RATE_MAX) {
                 return storageSet({ uploads: hits }).then(function () {
-                    throw err('已达路过图床 60 张/小时上限，约 ' +
-                        Math.ceil((RATE_WINDOW_MS - (now - hits[0])) / 60000) + ' 分钟后可继续', 'RATE');
+                    throw err(M('errRateLimit', [Math.ceil((RATE_WINDOW_MS - (now - hits[0])) / 60000)]), 'RATE');
                 });
             }
             hits.push(now);
@@ -98,7 +102,7 @@
     function parseHostJson(text, status) {
         var j;
         try { j = JSON.parse(text); }
-        catch (e) { throw new Error('图床返回非 JSON（HTTP ' + status + '）：' + String(text).slice(0, 160)); }
+        catch (e) { throw new Error(M('errNonJsonDetail', [status, String(text).slice(0, 160)])); }
         var img = j && j.image;
         if (!img || !(img.display_url || (img.url && /^https?:/i.test(img.url)))) {
             var e2 = j && j.error;
@@ -148,7 +152,7 @@
 
     function dataUrlToFile(dataUrl, name) {
         var m = /^data:([^;,]*)?(;base64)?,([\s\S]*)$/.exec(String(dataUrl || ''));
-        if (!m) throw new Error('转发过来的数据格式不对');
+        if (!m) throw new Error(M('errBadDataUrl'));
         var bin = m[2] ? atob(m[3]) : decodeURIComponent(m[3]);
         var u8 = new Uint8Array(bin.length);
         for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
@@ -163,7 +167,7 @@
         return fetch(HOST_HOME, { credentials: 'same-origin' }).then(function (r) { return r.text(); })
             .then(function (html) {
                 var m = html.match(/auth_token["']?\s*[:=]\s*["']([0-9a-f]{16,})["']/i);
-                if (!m) throw new Error('取不到 imgchr 的 auth_token，请稍后重试');
+                if (!m) throw new Error(M('errNoAuthTokenFrame'));
                 pageToken = m[1];
                 return pageToken;
             });
@@ -206,12 +210,12 @@
         var file;
         try { file = dataUrlToFile(job.dataUrl, job.name); }
         catch (e) { return Promise.reject(e); }
-        if (file.size > MAX_BYTES) return Promise.reject(new Error('图片超过 5 MB 上限'));
+        if (file.size > MAX_BYTES) return Promise.reject(new Error(M('errTooLargeFrame')));
         var key = hashString(job.dataUrl);
         return cacheGet(key).then(function (cached) {
             if (cached) { cached.__cached = true; return cached; }
             if (hostLooksAnonymous()) {
-                return Promise.reject(err('imgchr 后台页面处于未登录状态，已拒绝上传：访客图 7 天后会被删除。请先去 imgchr.com 登录。', 'NOT_LOGGED_IN'));
+                return Promise.reject(err(M('errNotLoggedInFrame'), 'NOT_LOGGED_IN'));
             }
             return rateTick().then(function () {
                 var exp = supportedExpiration(job.hours);
@@ -246,7 +250,7 @@
     }
 
     function deleteOnHost(encodedId) {
-        if (!encodedId) return Promise.reject(new Error('缺少图片 id'));
+        if (!encodedId) return Promise.reject(new Error(M('errMissingId')));
         return readPageToken().then(function (token) {
             var fd = new FormData();
             fd.append('action', 'delete');
@@ -262,7 +266,7 @@
             var code = j && (j.status_code != null ? j.status_code : null);
             if (!resp.status || resp.status < 200 || resp.status >= 300 || (code != null && code !== 200)) {
                 var msg = (j && j.error && (j.error.message || j.error)) || (j && j.status_txt) || ('HTTP ' + resp.status);
-                throw new Error('删除失败：' + (typeof msg === 'string' ? msg : resp.status));
+                throw new Error(M('errDeleteFailed', [typeof msg === 'string' ? msg : resp.status]));
             }
             return { ok: true };
         });
