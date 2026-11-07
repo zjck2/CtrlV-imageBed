@@ -817,7 +817,12 @@
                 card.fail(m, !!code);
             }
             if (code === 'NOT_LOGGED_IN') {
-                card.chips([{ label: M('chipLogin'), value: HOST_LOGIN }]);
+                // 点击直接跳到 imgchr 登录页（用户手势里 window.open 不受弹窗拦截）；
+                // value 仅用于悬停提示展示网址。
+                card.chips([{
+                    label: M('chipLogin'), value: HOST_LOGIN,
+                    act: function () { window.open(HOST_LOGIN, '_blank'); }
+                }]);
             }
             card.autoHide();
         });
